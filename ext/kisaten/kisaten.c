@@ -38,8 +38,11 @@ uint8_t *afl_area_ptr = NULL;
 uint8_t use_forkserver = 0;
 uint8_t kisaten_init_done = 0;
 uint8_t afl_persistent_mode = 0;
+int crash_exception_id = 0;
 
+VALUE crash_exception_types = Qnil;
 VALUE tp_scope_event = Qnil;
+VALUE tp_raise_event =  Qnil;
 
 static inline void kisaten_map_shm() 
 {
@@ -57,7 +60,7 @@ static inline void kisaten_map_shm()
     {
         /* rb_warning only prints if $VERBOSE is true. 
            This could allow info here while not interfering with the program too much.
-           TODO: Allow passing when needed with a flag in init/env var
+           TODO: Allow disabling this warning with a flag in init/env var
          */
         rb_warning("Kisaten failed to get AFL shared memory environment variable");
     }
@@ -137,20 +140,36 @@ static void kisaten_scope_event(VALUE self, void *data)
     }
 
     /* TODO: Does it not get triggered by this module's C calls? */
-    /* rb_tracepoint_disable(self); */
 }
 
 static void kisaten_trace_begin()
 {
-    /* TODO: Find all possible events in ruby.h
-       TODO: PRIOROTY: Check if also need other events for scope, such as :thread_begin 
-       TODO: PRIORITY: Raise events, C function calls
-    */
+    /* TODO: Check if also need other events for scope or instrumentation, such as :thread_begin, :c_call */
     tp_scope_event = rb_tracepoint_new(Qnil, RUBY_EVENT_B_CALL |
-                                                   RUBY_EVENT_CALL |
-                                                   RUBY_EVENT_CLASS,
-                                                   kisaten_scope_event, NULL);
+                                             RUBY_EVENT_CALL |
+                                             RUBY_EVENT_CLASS,
+                                             kisaten_scope_event, NULL);
     rb_tracepoint_enable(tp_scope_event);
+
+    /* If requested, catch raised exceptions to crash (so afl can catch as an error) */
+    /* TODO: The current implementation relies on :raise tracepoint hooks.
+       This means it is called on every exception before it is rescued.
+       Need to think of a way to detect only unhandled exceptions (i.e. no rescue). */
+
+    if (NIL_P(crash_exception_types))
+    {
+        
+    }
+    else if (T_ARRAY == TYPE(crash_exception_types))
+    {
+
+    }
+    else
+    {
+        rb_raise(rb_eRuntimeError, "Kisaten crash exceptions array must be an array object or nil (refer to kisaten documenation)");
+    }
+
+    tp_raise_event = rb_tracepoint_new(Qnil, RUBY_EVENT_RAISE, kisaten_raise_event, NULL);
 }
 
 static inline void kisaten_trace_stop()
@@ -188,6 +207,10 @@ static void kisaten_init()
     {
         rb_raise(rb_eRuntimeError, "Kisaten init already done");
     }
+
+    /* Verify crash exceptions array + crash exceptions id before initializing forkserver */
+    if (crash_exception_types)
+
 
     use_forkserver = 1;
 
@@ -324,9 +347,6 @@ static void kisaten_init()
         }
     }
 
-    /* TODO: PRIORITY: Exception hook
-       accept exception ID in init and set it in MRI */
-
     /* Get AFL shared memory before starting instrumentation */
     kisaten_map_shm();
 
@@ -340,6 +360,8 @@ static VALUE rb_init_kisaten(VALUE self)
     return Qnil;
 }
 
+/* TODO: Optional crash_exception_types array 
+*/
 static VALUE rb_loop_kisaten(VALUE self, VALUE max_count)
 {
     static int _saved_max_cnt = 0;

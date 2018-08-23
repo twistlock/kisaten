@@ -1,0 +1,8 @@
+clean
+clobber
+clobber_package
+compile
+compile:kisaten
+gem
+package
+repackage
