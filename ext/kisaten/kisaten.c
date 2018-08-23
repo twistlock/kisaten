@@ -13,9 +13,16 @@
 
 #endif
 
+/* Ruby 2.4 */
+#ifndef RB_INTEGER_TYPE_P
+#define RB_INTEGER_TYPE_P(obj) (RB_FIXNUM_P(obj) || RB_TYPE_P(obj, T_BIGNUM))
+#endif
+
 /* General TODO:
    * Replace all rb_eRuntimeError with a Kisaten error type
    * Consider treating AFL_INST_RATIO one day
+   * Write tests white/blackbox
+   * Defered mode
 */
 
 /* Constants that must be in sync with afl-fuzz (afl/config.h) */
@@ -24,9 +31,6 @@
 #define AFL_MAP_SIZE_POW2   16
 #define AFL_MAP_SIZE        (1 << AFL_MAP_SIZE_POW2)
 
-/* Ruby module globals */
-VALUE rb_mKisaten = Qnil;
-
 /* Implementation globals */
 unsigned int prev_location = 0;
 uint8_t *afl_area_ptr = NULL;
@@ -34,6 +38,8 @@ uint8_t *afl_area_ptr = NULL;
 uint8_t use_forkserver = 0;
 uint8_t kisaten_init_done = 0;
 uint8_t afl_persistent_mode = 0;
+
+VALUE tp_scope_event = Qnil;
 
 static inline void kisaten_map_shm() 
 {
@@ -134,7 +140,25 @@ static void kisaten_scope_event(VALUE self, void *data)
     /* rb_tracepoint_disable(self); */
 }
 
-static VALUE rb_init_kisaten(VALUE self)
+static void kisaten_trace_begin()
+{
+    /* TODO: Find all possible events in ruby.h
+       TODO: PRIOROTY: Check if also need other events for scope, such as :thread_begin 
+       TODO: PRIORITY: Raise events, C function calls
+    */
+    tp_scope_event = rb_tracepoint_new(Qnil, RUBY_EVENT_B_CALL |
+                                                   RUBY_EVENT_CALL |
+                                                   RUBY_EVENT_CLASS,
+                                                   kisaten_scope_event, NULL);
+    rb_tracepoint_enable(tp_scope_event);
+}
+
+static inline void kisaten_trace_stop()
+{
+    rb_tracepoint_disable(tp_scope_event);
+}
+
+static void kisaten_init()
 {
     static uint8_t _tmp[4] = {0};
 
@@ -175,6 +199,9 @@ static VALUE rb_init_kisaten(VALUE self)
     {
         if (_cnt < 0 && EBADF == errno)
         {
+            /* TODO: Consider a way to allow disabling this warning message.
+               It may end up as a bottleneck in some cases where forkserver is not needed */
+            rb_warning("Kisaten is running without forkserver");
             use_forkserver = 0;
         }
         else
@@ -188,7 +215,7 @@ static VALUE rb_init_kisaten(VALUE self)
     if (use_forkserver)
     {
         /* From my understanding (and sampling) it appears MRI does not set a handler for SIGCHLD here.
-           The user code can change this though. Resetting like in python-afl.
+           The user code can change the handler though. The code resets it (like in python-afl)
 
            TODO: Are there any unexpectable implications of temporarily resetting SIGCHLD handler in MRI?
         */
@@ -303,22 +330,84 @@ static VALUE rb_init_kisaten(VALUE self)
     /* Get AFL shared memory before starting instrumentation */
     kisaten_map_shm();
 
-    /* TODO: Find all possible events in ruby.h
-       TODO: PRIOROTY: Check if also need other events for scope, such as :thread_begin 
-       TODO: PRIORITY: Raise events, C function calls
-    */
-    VALUE tp_scope_event = rb_tracepoint_new(Qnil, RUBY_EVENT_B_CALL |
-                                                   RUBY_EVENT_CALL |
-                                                   RUBY_EVENT_CLASS,
-                                                   kisaten_scope_event, NULL);
-    rb_tracepoint_enable(tp_scope_event);
+    kisaten_trace_begin();
+}
 
-
+static VALUE rb_init_kisaten(VALUE self)
+{
+    afl_persistent_mode = 0;
+    kisaten_init();
     return Qnil;
+}
+
+static VALUE rb_loop_kisaten(VALUE self, VALUE max_count)
+{
+    static int _saved_max_cnt = 0;
+    static uint8_t _first_pass = 1;
+    static uint32_t _run_cnt = 0;
+
+    /* Note: LLVM mode and python-afl use an enviroment variable to enforce persistent mode.
+       Currently not implementating unless it has a good reason */
+
+    if (_first_pass)
+    {
+        /* Check if given max_count is valid */
+        if (!RB_INTEGER_TYPE_P(max_count) && !NIL_P(max_count))
+        {
+            rb_raise(rb_eRuntimeError, "Kisaten loop max_count must be an integer or nil (for infinite)");
+        }
+
+        if (NIL_P(max_count))
+        {
+            /* nil max_count means infinite loop */
+            _saved_max_cnt = -1;
+        }
+        else
+        {
+            _saved_max_cnt = NUM2INT(max_count);
+            if (0 >= _saved_max_cnt)
+            {
+                /* Return without doing anything, next run will be like new */
+                return Qfalse;
+            }
+        }
+
+        /* Start the fork server with persistent mode */
+        afl_persistent_mode = 1;
+        prev_location = 0;
+
+        kisaten_init();
+
+        _first_pass = 0;
+        _run_cnt++;
+
+        return Qtrue;
+    }
+
+    if (_run_cnt < _saved_max_cnt)
+    {
+        if (0 != kill(getpid(), SIGSTOP))
+        {
+            /* TODO: Low: should this be an error? Maybe just return Qfalse and log? */
+            rb_raise(rb_eRuntimeError, "Kisaten failed to raise SIGSTOP");
+        }
+
+        _run_cnt++;
+        return Qtrue;
+    }
+    else
+    {
+        /* Loop has ended, disable instrumentation for the rest of the Ruby code */
+        kisaten_trace_stop();
+        return Qfalse;
+    }
 }
 
 void Init_kisaten()
 {
+    VALUE rb_mKisaten = Qnil;
+
     rb_mKisaten = rb_define_module("Kisaten");
     rb_define_singleton_method(rb_mKisaten, "init", rb_init_kisaten, 0);
+    rb_define_singleton_method(rb_mKisaten, "loop", rb_loop_kisaten, 1);
 }
