@@ -444,6 +444,13 @@ static VALUE rb_loop_kisaten(VALUE self, VALUE max_count)
 /* This function will be used to set exceptions that should crash execution */
 static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE int_crash_id)
 {
+    if (kisaten_init_done)
+    {
+        /* TODO: Consider allowing calling crash_at after init if there is a need for it.
+           Basically just need to set or remove the raise TP if changed */
+        rb_raise(rb_eRuntimeError, "Kisaten init already done, crash_at currently unsupported");
+    }
+
     /* Allow "reset" by setting nil,nil */
     if (NIL_P(arr_exceptions) && NIL_P(int_crash_id))
     {

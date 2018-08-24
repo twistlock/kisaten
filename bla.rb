@@ -3,9 +3,6 @@ def test_bla
     puts "Bla!"
 end
 
-Kisaten.crash_at nil, nil
+Kisaten.crash_at [RuntimeError], 0
 
-while Kisaten.loop nil
-    test_bla
-end
-
+Kisaten.init
