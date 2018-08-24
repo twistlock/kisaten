@@ -164,7 +164,10 @@ static void kisaten_raise_event(VALUE self, void *data)
             if (rb_obj_is_kind_of(raised_exception, _exception_class))
             {
                 /* Crash execution with given signal */
-                puts("Catch");
+                if (0 != kill(getpid(), crash_exception_id))
+                {
+                    rb_raise(rb_eRuntimeError, "Kisaten catched exception but failed to crash execution with given signal");
+                }
                 break;
             }
         }
@@ -173,11 +176,8 @@ static void kisaten_raise_event(VALUE self, void *data)
 
 static void kisaten_trace_begin()
 {
-    /* TODO: Check if also need other events for scope or instrumentation, such as :thread_begin, :c_call */
-    tp_scope_event = rb_tracepoint_new(Qnil, RUBY_EVENT_B_CALL |
-                                             RUBY_EVENT_CALL |
-                                             RUBY_EVENT_CLASS,
-                                             kisaten_scope_event, NULL);
+    /* TODO: Consider allowing instrumenation by other events other than :line (e.g. :call,:call,:b_call, etc.) */
+    tp_scope_event = rb_tracepoint_new(Qnil, RUBY_EVENT_LINE, kisaten_scope_event, NULL);
     rb_tracepoint_enable(tp_scope_event);
 
     /* If requested, catch raised exceptions and cause a crash (so afl can catch) */
@@ -310,7 +310,7 @@ static void kisaten_init()
         else
         {
             /* Persistent mode: if child is alive but stopped give it a SIGCONT to resume */
-            if (0 > kill(child_pid, SIGCONT))
+            if (0 != kill(child_pid, SIGCONT))
             {
                 rb_raise(rb_eRuntimeError, "Kisaten persistent mode signal failure");
             }
@@ -459,6 +459,7 @@ static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE int_cra
         return Qtrue;
     }
 
+    /* Accept only integer for crash id. Can be found with Signal, i.e Signal.list["USR1"] */
     if (RB_INTEGER_TYPE_P(int_crash_id))
     {
         crash_exception_id = NUM2INT(int_crash_id);

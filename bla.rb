@@ -3,6 +3,6 @@ def test_bla
     puts "Bla!"
 end
 
-Kisaten.crash_at [RuntimeError], 0
+Kisaten.crash_at [RuntimeError], Signal.list["USR1"]
 
 Kisaten.init
