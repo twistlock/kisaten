@@ -3,6 +3,7 @@ def test_bla
     puts "Bla!"
 end
 
-Kisaten.init
-test_bla
+while Kisaten.loop nil
+    test_bla
+end
 

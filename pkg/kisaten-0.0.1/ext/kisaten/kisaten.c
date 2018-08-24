@@ -192,10 +192,6 @@ static void kisaten_trace_begin()
         tp_raise_event = rb_tracepoint_new(Qnil, RUBY_EVENT_RAISE, kisaten_raise_event, NULL);
         rb_tracepoint_enable(tp_raise_event);
     }
-    else if (!NIL_P(crash_exception_types))
-    {
-        rb_raise(rb_eRuntimeError, "Kisaten crash exceptions array must be an Array or nil (refer to kisaten documenation)");
-    }
 }
 
 static inline void kisaten_trace_stop()
@@ -233,10 +229,6 @@ static void kisaten_init()
     {
         rb_raise(rb_eRuntimeError, "Kisaten init already done");
     }
-
-    /* Verify crash exceptions array + crash exceptions id before initializing forkserver */
-    if (crash_exception_types)
-
 
     use_forkserver = 1;
 
@@ -386,8 +378,6 @@ static VALUE rb_init_kisaten(VALUE self)
     return Qnil;
 }
 
-/* TODO: Optional crash_exception_types array 
-*/
 static VALUE rb_loop_kisaten(VALUE self, VALUE max_count)
 {
     static int _saved_max_cnt = 0;
@@ -451,6 +441,34 @@ static VALUE rb_loop_kisaten(VALUE self, VALUE max_count)
     }
 }
 
+/* This function will be used to set exceptions that should crash execution */
+static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE int_crash_id)
+{
+    if (RB_INTEGER_TYPE_P(int_crash_id))
+    {
+        crash_exception_id = NUM2INT(int_crash_id);
+    }
+    else
+    {
+        rb_raise(rb_eRuntimeError, "Kisaten crash exception signal ID must be an integer");
+    }
+
+    if (T_ARRAY == TYPE(arr_exceptions))
+    {
+        crash_exception_types = rb_ary_dup(arr_exceptions);
+    }
+    else if (NIL_P(arr_exceptions))
+    {
+        arr_exceptions = Qnil;
+    }
+    else
+    {
+        rb_raise(rb_eRuntimeError, "Kisaten crash exceptions array must be an Array or nil (refer to kisaten documenation)");
+    }
+    
+    return Qtrue;
+}
+
 void Init_kisaten()
 {
     VALUE rb_mKisaten = Qnil;
@@ -458,4 +476,5 @@ void Init_kisaten()
     rb_mKisaten = rb_define_module("Kisaten");
     rb_define_singleton_method(rb_mKisaten, "init", rb_init_kisaten, 0);
     rb_define_singleton_method(rb_mKisaten, "loop", rb_loop_kisaten, 1);
+    rb_define_singleton_method(rb_mKisaten, "crash_at", rb_crash_at_kisaten, 2);
 }
