@@ -444,6 +444,14 @@ static VALUE rb_loop_kisaten(VALUE self, VALUE max_count)
 /* This function will be used to set exceptions that should crash execution */
 static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE int_crash_id)
 {
+    /* Allow "reset" by setting nil,nil */
+    if (NIL_P(arr_exceptions) && NIL_P(int_crash_id))
+    {
+        crash_exception_types = Qnil;
+        crash_exception_id = 0;
+        return Qtrue;
+    }
+
     if (RB_INTEGER_TYPE_P(int_crash_id))
     {
         crash_exception_id = NUM2INT(int_crash_id);
@@ -457,15 +465,11 @@ static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE int_cra
     {
         crash_exception_types = rb_ary_dup(arr_exceptions);
     }
-    else if (NIL_P(arr_exceptions))
-    {
-        arr_exceptions = Qnil;
-    }
     else
     {
-        rb_raise(rb_eRuntimeError, "Kisaten crash exceptions array must be an Array or nil (refer to kisaten documenation)");
+        rb_raise(rb_eRuntimeError, "Kisaten crash exceptions array must be an Array (refer to kisaten documenation)");
     }
-    
+
     return Qtrue;
 }
 
