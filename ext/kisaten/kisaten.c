@@ -22,7 +22,8 @@
    * Replace all rb_eRuntimeError with a Kisaten error type
    * Consider treating AFL_INST_RATIO one day
    * Write tests white/blackbox
-   * Defered mode
+
+   * INSTRUMENATION VARIES ACROSS RUNS?
 */
 
 /* Constants that must be in sync with afl-fuzz (afl/config.h) */
@@ -151,6 +152,20 @@ static void kisaten_raise_event(VALUE self, void *data)
     trace_arg = rb_tracearg_from_tracepoint(self);
     raised_exception = rb_tracearg_raised_exception(trace_arg);
 
+    /*************** Hack to help development - prints last exception msg to tmp file */
+    /*
+    FILE *hack_fp = fopen("/tmp/kisaten_last_msg", "w");
+    if (NULL != hack_fp)
+    {
+        rb_p(raised_exception);
+        VALUE msg = rb_funcall(raised_exception, rb_intern("message"), 0);
+        fprintf(hack_fp, "%s\n", StringValueCStr(msg));
+    }
+    fclose(hack_fp);
+    return;
+    */
+    /*************** Dev hack end *****************************************************/
+
     if (T_ARRAY != TYPE(crash_exception_types))
     {
         rb_warn("Kisaten :raise event called but crash_exception_types is not an Array");
@@ -264,7 +279,7 @@ static void kisaten_init()
         if (0 != _rc)
         {
             /* TODO: Check errno */
-            rb_raise(rb_eRuntimeError, "Kisaten failure resetting SIGCHLD");
+            rb_raise(rb_eRuntimeError, "Kisaten failure setting (DFL) SIGCHLD");
         }  
     }
 
@@ -297,12 +312,7 @@ static void kisaten_init()
                 rb_raise(rb_eRuntimeError, "Kisaten failure to fork");
             }
             if (!child_pid)
-            {        _rc = sigaction(SIGCHLD, &_dfl_sigchld, &_old_sigchld);
-        if (0 != _rc)
-        {
-            /* TODO: Check errno */
-            rb_raise(rb_eRuntimeError, "Kisaten failure resetting SIGCHLD");
-        }
+            {        
                 /* Continue to instrumentation for the child */
                 break;
             }
