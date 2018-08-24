@@ -120,7 +120,7 @@ static void kisaten_scope_event(VALUE self, void *data)
 {
     /* Personal: Refer to byebug.c for full debugger example also using debug_context_t */
     rb_trace_arg_t *trace_arg;
-    VALUE path, lineno;
+    VALUE path, lineno = Qnil;
     unsigned int _cur_location = 0;
 
     /* TODO: LOW: Check if event is in valid thread */
@@ -142,6 +142,35 @@ static void kisaten_scope_event(VALUE self, void *data)
     /* TODO: Does it not get triggered by this module's C calls? */
 }
 
+static void kisaten_raise_event(VALUE self, void *data)
+{
+    rb_trace_arg_t *trace_arg;
+    VALUE raised_exception, _exception_class = Qnil;
+    int i = 0;
+
+    trace_arg = rb_tracearg_from_tracepoint(self);
+    raised_exception = rb_tracearg_raised_exception(trace_arg);
+
+    if (T_ARRAY != TYPE(crash_exception_types))
+    {
+        rb_warn("Kisaten :raise event called but crash_exception_types is not an Array");
+    }
+    else
+    {
+        /* Match raised exception class/subclass with given crash exceptions */
+        for (i = 0; i < RARRAY_LENINT(crash_exception_types); i++)
+        {
+            _exception_class = rb_ary_entry(crash_exception_types, i);
+            if (rb_obj_is_kind_of(raised_exception, _exception_class))
+            {
+                /* Crash execution with given signal */
+                puts("Catch");
+                break;
+            }
+        }
+    }
+}
+
 static void kisaten_trace_begin()
 {
     /* TODO: Check if also need other events for scope or instrumentation, such as :thread_begin, :c_call */
@@ -151,25 +180,22 @@ static void kisaten_trace_begin()
                                              kisaten_scope_event, NULL);
     rb_tracepoint_enable(tp_scope_event);
 
-    /* If requested, catch raised exceptions to crash (so afl can catch as an error) */
+    /* If requested, catch raised exceptions and cause a crash (so afl can catch) */
     /* TODO: The current implementation relies on :raise tracepoint hooks.
        This means it is called on every exception before it is rescued.
-       Need to think of a way to detect only unhandled exceptions (i.e. no rescue). */
+       
+       Possibly implement something like byebug's post-mortem, then catching only unhandled exceptions.
+       Or other ways to detect only unhandled exceptions (i.e. no rescue). */
 
-    if (NIL_P(crash_exception_types))
+    if (T_ARRAY == TYPE(crash_exception_types))
     {
-        
+        tp_raise_event = rb_tracepoint_new(Qnil, RUBY_EVENT_RAISE, kisaten_raise_event, NULL);
+        rb_tracepoint_enable(tp_raise_event);
     }
-    else if (T_ARRAY == TYPE(crash_exception_types))
+    else if (!NIL_P(crash_exception_types))
     {
-
+        rb_raise(rb_eRuntimeError, "Kisaten crash exceptions array must be an Array or nil (refer to kisaten documenation)");
     }
-    else
-    {
-        rb_raise(rb_eRuntimeError, "Kisaten crash exceptions array must be an array object or nil (refer to kisaten documenation)");
-    }
-
-    tp_raise_event = rb_tracepoint_new(Qnil, RUBY_EVENT_RAISE, kisaten_raise_event, NULL);
 }
 
 static inline void kisaten_trace_stop()
