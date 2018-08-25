@@ -22,6 +22,8 @@
    * Replace all rb_eRuntimeError with a Kisaten error type
    * Consider treating AFL_INST_RATIO one day
    * Write tests white/blackbox
+
+   /* URGENT: CATCH [BUG] Segmentation fault at 0x0000000000000 (X)
 */
 
 /* Constants that must be in sync with afl-fuzz (afl/config.h) */
@@ -43,6 +45,26 @@ VALUE crash_exception_types = Qnil;
 VALUE crash_exception_ignore = Qnil;
 VALUE tp_scope_event = Qnil;
 VALUE tp_raise_event =  Qnil;
+
+static void kisaten_register_globals()
+{
+    /* When using global C variables that contain a Ruby value, the code must manually inform the GC of these variable.
+       Otherwise they get reaped */
+    /* rb_gc_register_address is equivalent to rb_global_variable */
+    rb_gc_register_address(&crash_exception_types);
+    rb_gc_register_address(&crash_exception_ignore);
+    rb_gc_register_address(&tp_scope_event);
+    rb_gc_register_address(&tp_raise_event);
+}
+
+static void kisaten_unregister_globals()
+{
+    /* TODO: Figure out if cleanup should be called by the module. Don't want these vars to leak. */
+    rb_gc_unregister_address(&crash_exception_types);
+    rb_gc_unregister_address(&crash_exception_ignore);
+    rb_gc_unregister_address(&tp_scope_event);
+    rb_gc_unregister_address(&tp_raise_event);
+}
 
 static inline void kisaten_map_shm() 
 {
@@ -162,7 +184,6 @@ static void kisaten_raise_event(VALUE self, void *data)
         fprintf(hack_fp, "%s\n", StringValueCStr(msg));
     }
     fclose(hack_fp);
-    return;
     */
     /*************** Dev hack end *****************************************************/
 
@@ -532,4 +553,6 @@ void Init_kisaten()
     rb_define_singleton_method(rb_mKisaten, "init", rb_init_kisaten, 0);
     rb_define_singleton_method(rb_mKisaten, "loop", rb_loop_kisaten, 1);
     rb_define_singleton_method(rb_mKisaten, "crash_at", rb_crash_at_kisaten, 3);
+
+    kisaten_register_globals();
 }
