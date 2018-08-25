@@ -22,8 +22,6 @@
    * Replace all rb_eRuntimeError with a Kisaten error type
    * Consider treating AFL_INST_RATIO one day
    * Write tests white/blackbox
-
-   * INSTRUMENATION VARIES ACROSS RUNS?
 */
 
 /* Constants that must be in sync with afl-fuzz (afl/config.h) */
@@ -42,6 +40,7 @@ uint8_t afl_persistent_mode = 0;
 int crash_exception_id = 0;
 
 VALUE crash_exception_types = Qnil;
+VALUE crash_exception_ignore = Qnil;
 VALUE tp_scope_event = Qnil;
 VALUE tp_raise_event =  Qnil;
 
@@ -147,6 +146,7 @@ static void kisaten_raise_event(VALUE self, void *data)
 {
     rb_trace_arg_t *trace_arg;
     VALUE raised_exception, _exception_class = Qnil;
+    uint8_t _exception_blacklisted = 0;
     int i = 0;
 
     trace_arg = rb_tracearg_from_tracepoint(self);
@@ -170,20 +170,42 @@ static void kisaten_raise_event(VALUE self, void *data)
     {
         rb_warn("Kisaten :raise event called but crash_exception_types is not an Array");
     }
+    else if (T_ARRAY != TYPE(crash_exception_ignore) && !NIL_P(crash_exception_ignore))
+    {
+        rb_warn("Kisaten :raise event called but crash_exception_ignore is of bad type");
+    }
     else
     {
-        /* Match raised exception class/subclass with given crash exceptions */
-        for (i = 0; i < RARRAY_LENINT(crash_exception_types); i++)
+        /* First verify exception class is not blacklisted. 
+           This will also verify that it's not a subclass of blacklisted class */
+        if (!NIL_P(crash_exception_ignore))
         {
-            _exception_class = rb_ary_entry(crash_exception_types, i);
-            if (rb_obj_is_kind_of(raised_exception, _exception_class))
+            for (i = 0; i < RARRAY_LENINT(crash_exception_ignore); i++)
             {
-                /* Crash execution with given signal */
-                if (0 != kill(getpid(), crash_exception_id))
+                _exception_class = rb_ary_entry(crash_exception_ignore, i);
+                if (rb_obj_is_kind_of(raised_exception, _exception_class))
                 {
-                    rb_raise(rb_eRuntimeError, "Kisaten catched exception but failed to crash execution with given signal");
+                    _exception_blacklisted = 1;
+                    break;
                 }
-                break;
+            }
+        }
+
+        if (!_exception_blacklisted)
+        {
+            /* Match raised exception class/subclass with given crash exceptions */
+            for (i = 0; i < RARRAY_LENINT(crash_exception_types); i++)
+            {
+                _exception_class = rb_ary_entry(crash_exception_types, i);
+                if (rb_obj_is_kind_of(raised_exception, _exception_class))
+                {
+                    /* Crash execution with given signal */
+                    if (0 != kill(getpid(), crash_exception_id))
+                    {
+                        rb_raise(rb_eRuntimeError, "Kisaten catched exception but failed to crash execution with given signal");
+                    }
+                    break;
+                }
             }
         }
     }
@@ -191,7 +213,8 @@ static void kisaten_raise_event(VALUE self, void *data)
 
 static void kisaten_trace_begin()
 {
-    /* TODO: Consider allowing instrumenation by other events other than :line (e.g. :call,:call,:b_call, etc.) */
+    /* TODO: Consider allowing instrumenation by other events other than :line
+       Specifically c_call would be interesting and then :call,:call,:b_call, etc. */
     tp_scope_event = rb_tracepoint_new(Qnil, RUBY_EVENT_LINE, kisaten_scope_event, NULL);
     rb_tracepoint_enable(tp_scope_event);
 
@@ -452,7 +475,7 @@ static VALUE rb_loop_kisaten(VALUE self, VALUE max_count)
 }
 
 /* This function will be used to set exceptions that should crash execution */
-static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE int_crash_id)
+static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE arr_ignore, VALUE int_crash_id)
 {
     if (kisaten_init_done)
     {
@@ -461,32 +484,42 @@ static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE int_cra
         rb_raise(rb_eRuntimeError, "Kisaten init already done, crash_at currently unsupported");
     }
 
-    /* Allow "reset" by setting nil,nil */
-    if (NIL_P(arr_exceptions) && NIL_P(int_crash_id))
+    /* Allow "reset" by setting nil,nil,nil */
+    if (NIL_P(arr_ignore) && NIL_P(arr_exceptions) && NIL_P(int_crash_id))
     {
         crash_exception_types = Qnil;
+        crash_exception_ignore = Qnil;
         crash_exception_id = 0;
         return Qtrue;
     }
 
-    /* Accept only integer for crash id. Can be found with Signal, i.e Signal.list["USR1"] */
-    if (RB_INTEGER_TYPE_P(int_crash_id))
+    /* Check types
+       Accept only arrays for exception and ignore list
+       Accept only integer for crash id. Can be found with Signal, i.e Signal.list["USR1"] */
+    if (T_ARRAY != TYPE(arr_exceptions))
     {
-        crash_exception_id = NUM2INT(int_crash_id);
+        rb_raise(rb_eRuntimeError, "Kisaten.crash_at needs an Array for crash exceptions list");
+    }
+    if (T_ARRAY != TYPE(arr_ignore) && !NIL_P(arr_ignore))
+    {
+        rb_raise(rb_eRuntimeError, "Kisaten.crash_at needs an Array for ignore exceptions list");
+    }
+    if (!RB_INTEGER_TYPE_P(int_crash_id))
+    {
+        rb_raise(rb_eRuntimeError, "Kisaten.crash_at crash exception signal ID must be an integer");   
+    }
+    
+    crash_exception_types = rb_ary_dup(arr_exceptions);
+    /* Secretly allow nil for ignore list */
+    if (NIL_P(arr_ignore))
+    {
+        crash_exception_ignore = Qnil;
     }
     else
     {
-        rb_raise(rb_eRuntimeError, "Kisaten crash exception signal ID must be an integer");
+        crash_exception_ignore = rb_ary_dup(arr_ignore);
     }
-
-    if (T_ARRAY == TYPE(arr_exceptions))
-    {
-        crash_exception_types = rb_ary_dup(arr_exceptions);
-    }
-    else
-    {
-        rb_raise(rb_eRuntimeError, "Kisaten crash exceptions array must be an Array (refer to kisaten documenation)");
-    }
+    crash_exception_id = NUM2INT(int_crash_id);
 
     return Qtrue;
 }
@@ -498,5 +531,5 @@ void Init_kisaten()
     rb_mKisaten = rb_define_module("Kisaten");
     rb_define_singleton_method(rb_mKisaten, "init", rb_init_kisaten, 0);
     rb_define_singleton_method(rb_mKisaten, "loop", rb_loop_kisaten, 1);
-    rb_define_singleton_method(rb_mKisaten, "crash_at", rb_crash_at_kisaten, 2);
+    rb_define_singleton_method(rb_mKisaten, "crash_at", rb_crash_at_kisaten, 3);
 }

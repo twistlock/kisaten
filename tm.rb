@@ -1,11 +1,8 @@
 require 'kisaten'
+require 'json'
 
-def bla
-    puts 'Blabla'
-end
+Kisaten.crash_at [Exception], [JSON::ParserError], Signal.list['USR1']
 
-Kisaten.crash_at [Exception], Signal.list['USR1']
-
-while Kisaten.loop 1000
-    bla
+while Kisaten.loop 10000
+   gc = JSON.parse(File.read(ARGV[0]))
 end
