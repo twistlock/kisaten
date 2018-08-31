@@ -77,10 +77,7 @@ static inline void kisaten_map_shm()
 
     if (!shm_id_str)
     {
-        /* rb_warning only prints if $VERBOSE is true. 
-           This could allow info here while not interfering with the program too much.
-           TODO: Allow disabling this warning with a flag in init/env var
-         */
+        /* rb_warning only prints if $VERBOSE is true. */
         rb_warning("Kisaten failed to get AFL shared memory environment variable");
     }
     else
@@ -183,25 +180,13 @@ static void kisaten_scope_event(VALUE self, void *data)
 static void kisaten_raise_event(VALUE self, void *data)
 {
     rb_trace_arg_t *trace_arg;
-    VALUE raised_exception, _exception_class = Qnil;
+    VALUE raised_exception, _cur_exception_class = Qnil;
+    VALUE _exception_class_name = Qnil;
     uint8_t _exception_blacklisted = 0;
     int i = 0;
 
     trace_arg = rb_tracearg_from_tracepoint(self);
     raised_exception = rb_tracearg_raised_exception(trace_arg);
-
-    /*************** Hack to help development - prints last exception msg to tmp file */
-    /*
-    FILE *hack_fp = fopen("/tmp/kisaten_last_msg", "w");
-    if (NULL != hack_fp)
-    {
-        rb_p(raised_exception);
-        VALUE msg = rb_funcall(raised_exception, rb_intern("message"), 0);
-        fprintf(hack_fp, "%s\n", StringValueCStr(msg));
-    }
-    fclose(hack_fp);
-    */
-    /*************** Dev hack end *****************************************************/
 
     if (T_ARRAY != TYPE(crash_exception_types))
     {
@@ -219,8 +204,8 @@ static void kisaten_raise_event(VALUE self, void *data)
         {
             for (i = 0; i < RARRAY_LENINT(crash_exception_ignore); i++)
             {
-                _exception_class = rb_ary_entry(crash_exception_ignore, i);
-                if (rb_obj_is_kind_of(raised_exception, _exception_class))
+                _cur_exception_class = rb_ary_entry(crash_exception_ignore, i);
+                if (rb_obj_is_kind_of(raised_exception, _cur_exception_class))
                 {
                     _exception_blacklisted = 1;
                     break;
@@ -233,9 +218,14 @@ static void kisaten_raise_event(VALUE self, void *data)
             /* Match raised exception class/subclass with given crash exceptions */
             for (i = 0; i < RARRAY_LENINT(crash_exception_types); i++)
             {
-                _exception_class = rb_ary_entry(crash_exception_types, i);
-                if (rb_obj_is_kind_of(raised_exception, _exception_class))
+                _cur_exception_class = rb_ary_entry(crash_exception_types, i);
+                if (rb_obj_is_kind_of(raised_exception, _cur_exception_class))
                 {
+                    /* Before crashing, inform the host with warning. This can make it easier to set up fuzzers */
+                    /* It should be possible to also get the message with rb_obj_as_string, see exc_inspect code */
+                    _exception_class_name = rb_class_name(raised_exception);
+                    rb_warning("Kisaten crashing execution because exception was raised: %s", RSTRING_PTR(_exception_class_name)); /* Assume class name can't include null char */
+
                     /* Crash execution with given signal */
                     if (0 != kill(getpid(), crash_exception_id))
                     {
