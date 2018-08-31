@@ -223,8 +223,8 @@ static void kisaten_raise_event(VALUE self, void *data)
                 {
                     /* Before crashing, inform the host with warning. This can make it easier to set up fuzzers */
                     /* It should be possible to also get the message with rb_obj_as_string, see exc_inspect code */
-                    _exception_class_name = rb_class_name(raised_exception);
-                    rb_warning("Kisaten crashing execution because exception was raised: %s", RSTRING_PTR(_exception_class_name)); /* Assume class name can't include null char */
+                    _exception_class_name = rb_str_dup(rb_class_name(CLASS_OF(raised_exception)));
+                    rb_warning("Kisaten crashing execution because exception was raised: %s", StringValuePtr(_exception_class_name)); /* Assume class name can't include null char */
 
                     /* Crash execution with given signal */
                     if (0 != kill(getpid(), crash_exception_id))
