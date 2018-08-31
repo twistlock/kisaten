@@ -21,7 +21,6 @@
 /* General TODO:
    * Replace all rb_eRuntimeError with a Kisaten error type
    * Consider treating AFL_INST_RATIO one day
-   * Write tests white/blackbox
 */
 
 /* Constants that must be in sync with afl-fuzz (afl/config.h) */
@@ -128,7 +127,6 @@ static inline uint32_t kisaten_location_fnv_hash(const VALUE path, const VALUE l
     _lineno = FIX2INT(lineno);
 
     /* TODO: Someone should verify this C is optimized */
-    /* TODO: Debug + Write test for this! Test without + with real ruby tracepoint data */
     while (_len > 0)
     {
         h ^= _path_ptr[0];

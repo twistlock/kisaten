@@ -33,7 +33,7 @@ end
 Rake::TestTask.new(:test) do |t|
   t.libs << "test"
   t.warning = true
-  t.verbose = true
+  t.options = "--verbose"
 end
 
 # Build the gem in pkg/kisaten.*.gem
