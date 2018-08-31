@@ -22,8 +22,6 @@
    * Replace all rb_eRuntimeError with a Kisaten error type
    * Consider treating AFL_INST_RATIO one day
    * Write tests white/blackbox
-
-   /* URGENT: CATCH [BUG] Segmentation fault at 0x0000000000000 (X)
 */
 
 /* Constants that must be in sync with afl-fuzz (afl/config.h) */
@@ -114,6 +112,17 @@ static inline uint32_t kisaten_location_fnv_hash(const VALUE path, const VALUE l
 
     uint32_t h = 0x811C9DC5; /* Seed(?) for 32-bit */
 
+    /* Type enforcement to prevent segfault */
+    if (!RB_INTEGER_TYPE_P(lineno))
+    {
+        rb_raise(rb_eRuntimeError, "Kisaten internal error: lineno is not an integer.");
+    }
+
+    if (T_STRING != TYPE(path))
+    {
+        rb_raise(rb_eRuntimeError, "Kisaten internal error: path is not a string.");
+    }
+
     _len = RSTRING_LEN(path);
     _path_ptr = RSTRING_PTR(path);
     _lineno = FIX2INT(lineno);
@@ -137,6 +146,15 @@ static inline uint32_t kisaten_location_fnv_hash(const VALUE path, const VALUE l
 
     return h;
 }
+
+#ifdef TEST_KISATEN_FNV
+static VALUE rb_fnv_kisaten(VALUE self, VALUE path, VALUE lineno)
+{
+
+    uint32_t result = kisaten_location_fnv_hash(path, lineno);
+    return INT2FIX(result);
+}
+#endif
 
 static void kisaten_scope_event(VALUE self, void *data)
 {
@@ -553,6 +571,9 @@ void Init_kisaten()
     rb_define_singleton_method(rb_mKisaten, "init", rb_init_kisaten, 0);
     rb_define_singleton_method(rb_mKisaten, "loop", rb_loop_kisaten, 1);
     rb_define_singleton_method(rb_mKisaten, "crash_at", rb_crash_at_kisaten, 3);
+#ifdef TEST_KISATEN_FNV
+    rb_define_singleton_method(rb_mKisaten, "_fnv", rb_fnv_kisaten, 2);
+#endif
 
     kisaten_register_globals();
 }

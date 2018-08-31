@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rake/extensiontask'
+require 'rake/testtask'
 require 'rubygems/package_task'
 
 $LOAD_PATH.unshift File.expand_path('../lib', __FILE__)
@@ -29,5 +30,13 @@ spec = Gem::Specification.new 'kisaten' do |spec|
 
 end
 
+Rake::TestTask.new(:test) do |t|
+  t.libs << "test"
+  t.warning = true
+  t.verbose = true
+end
+
 # Build the gem in pkg/kisaten.*.gem
 Gem::PackageTask.new spec do end
+
+task :default => :test
