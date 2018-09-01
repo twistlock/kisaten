@@ -5,6 +5,8 @@ Kisaten is a Ruby extension that enables fuzizng instrumented Ruby code. It impl
 
 Kisaten works with MRI ([Matz's Ruby Interpreter](https://github.com/ruby/ruby)), other Ruby interpeters are currently not supported. The development of this tool was inspired by [python-afl](https://github.com/jwilk/python-afl) and it works in a similiar way that python-afl does with Python.
 
+For bugs found with kisaten see [](doc/trophy_case.md).
+
 ## Installation
 ### From gem
 Todo
