@@ -23,6 +23,6 @@ class KisatenTest < Minitest::Test
     assert_equal 3137816834, Kisaten._fnv('wół', 37)
   end
 
-  # TODO: Write tests checking forkserver and instrumentation working by launching a different Ruby instance
+  # TODO: IMPORTANT: Write tests checking forkserver and instrumentation working by launching a different Ruby instance
   # Or any other hacky way by modifying the C code
 end
