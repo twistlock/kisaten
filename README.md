@@ -1,9 +1,9 @@
 # Kisaten
 ![Kisaten logo](https://github.com/zelivans/kisaten/raw/master/doc/assets/logo_display.png)
 
-Kisaten is a Ruby extension that enables fuzizng instrumented Ruby code. It implements a fork server and instrumentation that relies on AFL ([american fuzzy lop](http://lcamtuf.coredump.cx/afl/)).
+Kisaten is a Ruby extension that enables fuzzing instrumented Ruby code. It implements a fork server and instrumentation that relies on AFL ([american fuzzy lop](http://lcamtuf.coredump.cx/afl/)).
 
-Kisaten works with MRI ([Matz's Ruby Interpreter](https://github.com/ruby/ruby)), other Ruby interpeters are currently not supported. The development of this tool was inspired by [python-afl](https://github.com/jwilk/python-afl) and it works in a similiar way that python-afl does with Python.
+Kisaten works with MRI ([Matz's Ruby Interpreter](https://github.com/ruby/ruby)), other Ruby interpreters are currently not supported. The development of this tool was inspired by [python-afl](https://github.com/jwilk/python-afl) and it works in a similar way that python-afl does with Python.
 
 For bugs found with kisaten see [doc/trophy_case.md](doc/trophy_case.md).
 
