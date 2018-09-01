@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="UTF-8">
+
+<title>module Kisaten - RDoc Documentation</title>
+
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
+
+<script src="./js/jquery.js"></script>
+<script src="./js/darkfish.js"></script>
+
+<link href="./css/fonts.css" rel="stylesheet">
+<link href="./css/rdoc.css" rel="stylesheet">
+
+
+
+<body id="top" role="document" class="module">
+<nav role="navigation">
+  <div id="project-navigation">
+    <div id="home-section" role="region" title="Quick navigation" class="nav-section">
+  <h2>
+    <a href="./index.html" rel="home">Home</a>
+  </h2>
+
+  <div id="table-of-contents-navigation">
+    <a href="./table_of_contents.html#pages">Pages</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </div>
+</div>
+
+    <div id="search-section" role="search" class="project-section initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <div id="search-field-wrapper">
+      <input id="search-field" role="combobox" aria-label="Search"
+             aria-autocomplete="list" aria-controls="search-results"
+             type="text" name="search" placeholder="Search" spellcheck="false"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </div>
+
+    <ul id="search-results" aria-label="Search Results"
+        aria-busy="false" aria-expanded="false"
+        aria-atomic="false" class="initially-hidden"></ul>
+  </form>
+</div>
+
+  </div>
+
+  
+
+  <div id="class-metadata">
+    
+    
+    
+    
+    <!-- Method Quickref -->
+<div id="method-list-section" class="nav-section">
+  <h3>Methods</h3>
+
+  <ul class="link-list" role="directory">
+    
+    <li ><a href="#method-c-_fnv">::_fnv</a>
+    
+    <li ><a href="#method-c-crash_at">::crash_at</a>
+    
+    <li ><a href="#method-c-init">::init</a>
+    
+    <li ><a href="#method-c-loop">::loop</a>
+    
+  </ul>
+</div>
+
+  </div>
+</nav>
+
+<main role="main" aria-labelledby="module-Kisaten">
+  <h1 id="module-Kisaten" class="module">
+    module Kisaten
+  </h1>
+
+  <section class="description">
+    
+  </section>
+
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
+    
+
+    
+
+    
+    <section class="constants-list">
+      <header>
+        <h3>Constants</h3>
+      </header>
+      <dl>
+      
+        <dt id="VERSION">VERSION
+        
+        <dd>
+        
+      
+      </dl>
+    </section>
+    
+
+    
+
+    
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section">
+       <header>
+         <h3>Public Class Methods</h3>
+       </header>
+
+    
+      <div id="method-c-_fnv" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">_fnv</span><span
+            class="method-args">(p1, p2)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+          
+
+          
+          <div class="method-source-code" id="_fnv-source">
+            <pre>static VALUE rb_fnv_kisaten(VALUE self, VALUE path, VALUE lineno)
+{
+
+    uint32_t result = kisaten_location_fnv_hash(path, lineno);
+    return INT2FIX(result);
+}</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-c-crash_at" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">crash_at</span><span
+            class="method-args">(p1, p2, p3)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>This function will be used to set exceptions that should crash execution</p>
+          
+          
+
+          
+          <div class="method-source-code" id="crash_at-source">
+            <pre>static VALUE rb_crash_at_kisaten(VALUE self, VALUE arr_exceptions, VALUE arr_ignore, VALUE int_crash_id)
+{
+    if (kisaten_init_done)
+    {
+        /* TODO: Consider allowing calling crash_at after init if there is a need for it.
+           Basically just need to set or remove the raise TP if changed */
+        rb_raise(rb_eRuntimeError, &quot;Kisaten init already done, crash_at currently unsupported&quot;);
+    }
+
+    /* Allow &quot;reset&quot; by setting nil,nil,nil */
+    if (NIL_P(arr_ignore) &amp;&amp; NIL_P(arr_exceptions) &amp;&amp; NIL_P(int_crash_id))
+    {
+        crash_exception_types = Qnil;
+        crash_exception_ignore = Qnil;
+        crash_exception_id = 0;
+        return Qtrue;
+    }
+
+    /* Check types
+       Accept only arrays for exception and ignore list
+       Accept only integer for crash id. Can be found with Signal, i.e Signal.list[&quot;USR1&quot;] */
+    if (T_ARRAY != TYPE(arr_exceptions))
+    {
+        rb_raise(rb_eRuntimeError, &quot;Kisaten.crash_at needs an Array for crash exceptions list&quot;);
+    }
+    if (T_ARRAY != TYPE(arr_ignore) &amp;&amp; !NIL_P(arr_ignore))
+    {
+        rb_raise(rb_eRuntimeError, &quot;Kisaten.crash_at needs an Array for ignore exceptions list&quot;);
+    }
+    if (!RB_INTEGER_TYPE_P(int_crash_id))
+    {
+        rb_raise(rb_eRuntimeError, &quot;Kisaten.crash_at crash exception signal ID must be an integer&quot;);   
+    }
+    
+    crash_exception_types = rb_ary_dup(arr_exceptions);
+    /* Secretly allow nil for ignore list */
+    if (NIL_P(arr_ignore))
+    {
+        crash_exception_ignore = Qnil;
+    }
+    else
+    {
+        crash_exception_ignore = rb_ary_dup(arr_ignore);
+    }
+    crash_exception_id = NUM2INT(int_crash_id);
+
+    return Qtrue;
+}</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-c-init" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">init</span><span
+            class="method-args">()</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+          
+
+          
+          <div class="method-source-code" id="init-source">
+            <pre>static VALUE rb_init_kisaten(VALUE self)
+{
+    afl_persistent_mode = 0;
+    kisaten_init();
+    return Qnil;
+}</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-c-loop" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">loop</span><span
+            class="method-args">(p1)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+          
+
+          
+          <div class="method-source-code" id="loop-source">
+            <pre>static VALUE rb_loop_kisaten(VALUE self, VALUE max_count)
+{
+    static int _saved_max_cnt = 0;
+    static uint8_t _first_pass = 1;
+    static uint32_t _run_cnt = 0;
+
+    /* Note: LLVM mode and python-afl use an enviroment variable to enforce persistent mode.
+       Currently not implementating unless it has a good reason */
+
+    if (_first_pass)
+    {
+        /* Check if given max_count is valid */
+        if (!RB_INTEGER_TYPE_P(max_count) &amp;&amp; !NIL_P(max_count))
+        {
+            rb_raise(rb_eRuntimeError, &quot;Kisaten loop max_count must be an integer or nil (for infinite)&quot;);
+        }
+
+        if (NIL_P(max_count))
+        {
+            /* nil max_count means infinite loop */
+            _saved_max_cnt = -1;
+        }
+        else
+        {
+            _saved_max_cnt = NUM2INT(max_count);
+            if (0 &gt;= _saved_max_cnt)
+            {
+                /* Return without doing anything, next run will be like new */
+                return Qfalse;
+            }
+        }
+
+        /* Start the fork server with persistent mode */
+        afl_persistent_mode = 1;
+        prev_location = 0;
+
+        kisaten_init();
+
+        _first_pass = 0;
+        _run_cnt++;
+
+        return Qtrue;
+    }
+
+    if (_run_cnt &lt; _saved_max_cnt)
+    {
+        if (0 != kill(getpid(), SIGSTOP))
+        {
+            /* TODO: Low: should this be an error? Maybe just return Qfalse and log? */
+            rb_raise(rb_eRuntimeError, &quot;Kisaten failed to raise SIGSTOP&quot;);
+        }
+
+        _run_cnt++;
+        return Qtrue;
+    }
+    else
+    {
+        /* Loop has ended, disable instrumentation for the rest of the Ruby code */
+        kisaten_trace_stop();
+        return Qfalse;
+    }
+}</pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </section>
+  
+  </section>
+</main>
+
+
+<footer id="validator-badges" role="contentinfo">
+  <p><a href="http://validator.w3.org/check/referer">Validate</a>
+  <p>Generated by <a href="http://docs.seattlerb.org/rdoc/">RDoc</a> 4.2.1.
+  <p>Based on <a href="http://deveiate.org/projects/Darkfish-RDoc/">Darkfish</a> by <a href="http://deveiate.org">Michael Granger</a>.
+</footer>
+
