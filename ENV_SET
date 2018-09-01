@@ -1,4 +1,3 @@
-#!/bin/sh
 export AFL_SKIP_CHECKS=1 # AFL << 1.20b
 export AFL_SKIP_BIN_CHECK=1 # AFL >= 1.20b
 export AFL_DUMB_FORKSRV=1
