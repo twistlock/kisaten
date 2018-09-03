@@ -58,11 +58,12 @@ source ENV_SET
 4. Launch `afl-fuzz` normally. Very likely you will want to configure the `-m` flag so Ruby has enough memory to run.
 
 ```
-afl-fuzz -i input/ -o output/ -t 1000  -m 5000 -- ruby script.rb @@
+afl-fuzz -i input/ -o output/ -t 1000  -m 1000 -- ruby script.rb @@
 ```
 
 ### Other
-You can use regular AFL tools such as afl-tmin, afl-cmin, or afl-showmap with kisaten. This is a good way to check if instrumentation is working as expected.
+* Run Ruby in verbose mode (`-w`) to see kisaten debug messages. When an exception causes kisaten to crash the program, it prints the exception type.
+* You can use regular AFL tools such as afl-tmin, afl-cmin, or afl-showmap with kisaten. This is a good way to check if instrumentation is working as expected.
 
 ### Persistent mode
 AFL persistent mode (afl>=1.82b) can speed up execution considerably. To use with kisaten, call the `loop` function instead of `init`. 
