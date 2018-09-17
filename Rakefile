@@ -15,9 +15,11 @@ Rake::ExtensionTask.new 'kisaten' do |ext|
 end
 
 spec = Gem::Specification.new 'kisaten' do |spec|
-  spec.summary = 'Ruby instrumentation for afl fuzzing'
+  spec.summary = 'Ruby MRI extension for fuzzing Ruby code with afl-fuzz'
   spec.version = Kisaten::VERSION
   spec.authors = ["Ariel Zelivansky"]
+  spec.email = "ariel.zelivans@gmail.com"
+  spec.homepage = "https://github.com/zelivans/kisaten"
 
   spec.license = 'MIT'
 
@@ -26,7 +28,7 @@ spec = Gem::Specification.new 'kisaten' do |spec|
 
   spec.files = Dir["Rakefile", "{ext,lib}/**/*.{rb,c}", "LICENSE", "README"]
   spec.required_ruby_version = ">= 2.0.0"  
-  spec.add_development_dependency "rake-compiler"
+  spec.add_development_dependency "rake-compiler", "~> 0"
 
 end
 
