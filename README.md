@@ -1,6 +1,9 @@
 # Kisaten
 ![Kisaten logo](https://github.com/zelivans/kisaten/raw/master/doc/assets/logo_display.png)
 
+[![Gem Version](https://badge.fury.io/rb/kisaten.svg)](https://badge.fury.io/rb/kisaten) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/zelivans/kisaten/blob/master/LICENSE)
+
+
 Kisaten is a Ruby extension that enables fuzzing instrumented Ruby code. It implements a fork server and instrumentation that relies on AFL ([american fuzzy lop](http://lcamtuf.coredump.cx/afl/)).
 
 Kisaten works with MRI ([Matz's Ruby Interpreter](https://github.com/ruby/ruby)), other Ruby interpreters are currently not supported. The development of this tool was inspired by [python-afl](https://github.com/jwilk/python-afl) and it works in a similar way that python-afl does with Python.
@@ -8,8 +11,13 @@ Kisaten works with MRI ([Matz's Ruby Interpreter](https://github.com/ruby/ruby))
 For bugs found with kisaten see [doc/trophy_case.md](doc/trophy_case.md).
 
 ## Installation
-### From gem
-Todo
+### Dependencies
+You will most likely need Ruby header files to build the gem. This can be found in most distributions under `ruby-dev` or `ruby-devel`. Build utilities are also needed. For Ubuntu/Debian try `apt-get install ruby-dev build-essential`.
+
+### From RubyGems.org
+```
+gem install kisaten
+```
 
 ### From source
 Kisaten builds from source with Rake. To build and install the gem, replace * with the correct version number and run:
